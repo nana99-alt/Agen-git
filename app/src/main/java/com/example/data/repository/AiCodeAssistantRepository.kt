@@ -60,7 +60,17 @@ class AiCodeAssistantRepository {
                 text(msg.text)
             }
         }
-        val chat = reasoningModel.startChat(history = history)
+        val chat = try {
+            reasoningModel.startChat(history = history)
+        } catch (e: IllegalStateException) {
+            if (e.message?.contains("FirebaseApp", ignoreCase = true) == true) {
+                throw IllegalStateException(
+                    "Konfigurasi Firebase (google-services.json) belum ikut terkemas di APK ini. " +
+                        "Salin isi app/google-services.json dari AI Studio ke GitHub Secret bernama GOOGLE_SERVICES_JSON, lalu build ulang APK."
+                )
+            }
+            throw e
+        }
         val contextualPrompt = buildString {
             appendLine("Repository: $repoFullName (branch: $branch)")
             appendLine("Berkas aktif: $filePath")

@@ -24,6 +24,12 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
+      - name: Restore debug keystore
+        run: |
+          if [ -f debug.keystore.base64 ]; then
+            base64 -d debug.keystore.base64 > debug.keystore
+          fi
+
       - name: Prepare release signing keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -48,7 +54,21 @@ jobs:
             echo "KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
           fi
 
-      - name: Configure optional GitHub OAuth secrets
+      - name: Restore Firebase google-services.json from GitHub Secret
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            if echo "$GOOGLE_SERVICES_JSON" | grep -q '"project_info"'; then
+              printf "%s" "$GOOGLE_SERVICES_JSON" > app/google-services.json
+            else
+              echo "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
+            fi
+          elif [ ! -f app/google-services.json ]; then
+            echo "::warning::app/google-services.json tidak ditemukan. Tambahkan secret GOOGLE_SERVICES_JSON di GitHub Settings > Secrets > Actions agar Asisten AI Firebase aktif."
+          fi
+
+      - name: Configure GitHub OAuth secrets
         env:
           GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
           GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
