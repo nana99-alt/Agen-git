@@ -1,0 +1,6 @@
+{
+  "name": "KodeGit",
+  "description": "Editor kode Android berbahasa Indonesia dengan tema gelap developer, integrasi GitHub OAuth, manajemen repository/branch/commit/issues, dan asisten AI penalaran mendalam.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

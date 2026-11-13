@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">KodeGit</string>
+    <string name="app_tagline">Editor Kode Mobile, Klien GitHub &amp; Asisten AI</string>
+    <string name="login_cta">Masuk dengan GitHub</string>
+    <string name="logout_cta">Keluar</string>
+    <string name="create_repo_cta">Repo Baru</string>
+    <string name="create_branch_cta">Branch Baru</string>
+    <string name="create_file_cta">File Baru</string>
+    <string name="create_issue_cta">Issue Baru</string>
+    <string name="commit_changes_cta">Commit Perubahan</string>
+    <string name="ai_assistant_title">Asisten AI</string>
+    <string name="ai_apply_code_cta">Terapkan ke Editor</string>
+</resources>
