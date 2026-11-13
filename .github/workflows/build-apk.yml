@@ -1,4 +1,4 @@
-name: Build KodeGit APK
+name: Build KodeGit Release
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,12 +24,28 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Restore debug keystore
+      - name: Prepare release signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          SECRET_STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          SECRET_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -f debug.keystore.base64 ]; then
-            base64 -d debug.keystore.base64 > debug.keystore
+          KEYSTORE_FILE="${{ github.workspace }}/my-upload-key.jks"
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$SECRET_STORE_PASSWORD" ] && [ -n "$SECRET_KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_FILE"
+            echo "KEYSTORE_PATH=$KEYSTORE_FILE" >> "$GITHUB_ENV"
+            echo "STORE_PASSWORD=$SECRET_STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=$SECRET_KEY_PASSWORD" >> "$GITHUB_ENV"
           else
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            PASS="kodegit_release_2026"
+            keytool -genkeypair -v -keystore "$KEYSTORE_FILE" \
+              -alias upload \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$PASS" -keypass "$PASS" \
+              -dname "CN=KodeGit,O=KodeGit,C=ID"
+            echo "KEYSTORE_PATH=$KEYSTORE_FILE" >> "$GITHUB_ENV"
+            echo "STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
           fi
 
       - name: Configure optional GitHub OAuth secrets
@@ -41,13 +57,21 @@ jobs:
             printf "GITHUB_CLIENT_ID=%s\nGITHUB_CLIENT_SECRET=%s\n" "$GITHUB_CLIENT_ID" "$GITHUB_CLIENT_SECRET" > .env
           fi
 
-      - name: Build Debug APK
-        run: gradle :app:assembleDebug
+      - name: Build Release APK and AAB
+        run: gradle :app:assembleRelease :app:bundleRelease
 
-      - name: Upload APK artifact
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: KodeGit-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: KodeGit-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: KodeGit-release-aab
+          path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 14
