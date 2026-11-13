@@ -29,11 +29,38 @@ class AuthViewModel(
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.CheckingSession)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    private val _isVerifyingToken = MutableStateFlow(false)
+    val isVerifyingToken: StateFlow<Boolean> = _isVerifyingToken.asStateFlow()
+
+    private val _tokenLoginError = MutableStateFlow<String?>(null)
+    val tokenLoginError: StateFlow<String?> = _tokenLoginError.asStateFlow()
+
     init {
         checkExistingSession()
     }
 
     fun isOAuthConfigured(): Boolean = gitHubRepository.isOAuthConfigured()
+
+    fun clearTokenLoginError() {
+        _tokenLoginError.value = null
+    }
+
+    fun loginWithToken(rawToken: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isVerifyingToken.value = true
+            _tokenLoginError.value = null
+            gitHubRepository.loginWithPersonalToken(rawToken)
+                .onSuccess { user ->
+                    _isVerifyingToken.value = false
+                    _uiState.value = AuthUiState.Authenticated(user)
+                    onSuccess()
+                }
+                .onFailure { err ->
+                    _isVerifyingToken.value = false
+                    _tokenLoginError.value = err.message ?: "Gagal masuk menggunakan token GitHub."
+                }
+        }
+    }
 
     fun checkExistingSession() {
         viewModelScope.launch {
@@ -118,6 +145,7 @@ class AuthViewModel(
     fun logout() {
         viewModelScope.launch {
             gitHubRepository.logout()
+            _tokenLoginError.value = null
             _uiState.value = AuthUiState.Unauthenticated(
                 oauthConfigured = gitHubRepository.isOAuthConfigured()
             )

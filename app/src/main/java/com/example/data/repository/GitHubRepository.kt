@@ -31,6 +31,8 @@ class GitHubRepository(
 ) {
     companion object {
         const val OAUTH_REDIRECT_URI = "kodegit://oauth/callback"
+        const val GITHUB_TOKEN_CREATE_URL =
+            "https://github.com/settings/tokens/new?description=KodeGit%20Android&scopes=repo,read:user"
         private const val OAUTH_SCOPES = "repo read:user"
     }
 
@@ -41,6 +43,32 @@ class GitHubRepository(
             !id.startsWith("YOUR_") &&
             secret.isNotBlank() &&
             !secret.startsWith("YOUR_")
+    }
+
+    suspend fun loginWithPersonalToken(rawToken: String): Result<GitHubUserDto> {
+        val cleanToken = rawToken.trim()
+        if (cleanToken.isBlank()) {
+            return Result.failure(IllegalArgumentException("Token / API Key GitHub tidak boleh kosong."))
+        }
+        return try {
+            val response = api.getCurrentUser("Bearer $cleanToken")
+            val user = response.body()
+            if (response.isSuccessful && user != null) {
+                sessionDataStore.saveAccessToken(cleanToken)
+                Result.success(user)
+            } else {
+                val message = when (response.code()) {
+                    401 -> "Token / API Key GitHub tidak valid atau sudah kedaluwarsa. Pastikan Anda menyalin token lengkap (ghp_... atau github_pat_...)."
+                    403 -> "Token ditolak atau terkena batas akses GitHub (HTTP 403)."
+                    else -> "Gagal memverifikasi token GitHub (HTTP ${response.code()})."
+                }
+                Result.failure(IllegalStateException(message))
+            }
+        } catch (e: Exception) {
+            Result.failure(
+                IllegalStateException(e.localizedMessage ?: "Gagal terhubung ke server GitHub.")
+            )
+        }
     }
 
     suspend fun createOAuthAuthorizationUri(): Uri {

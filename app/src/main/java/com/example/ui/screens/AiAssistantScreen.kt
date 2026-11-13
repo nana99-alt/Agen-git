@@ -134,7 +134,7 @@ fun AiStudioTabScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "gemini-4-carbon • Thinking HIGH",
+                                text = "gemini-3.8-flash • Thinking HIGH",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = LuminousViolet
                             )
@@ -259,7 +259,7 @@ fun AiStudioTabScreen(
                                             color = LuminousViolet
                                         )
                                         Text(
-                                            text = "Model gemini-4-carbon sedang berpikir mendalam (Thinking HIGH)...",
+                                            text = "Model gemini-3.8-flash sedang berpikir mendalam (Thinking HIGH)...",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = LuminousViolet
                                         )

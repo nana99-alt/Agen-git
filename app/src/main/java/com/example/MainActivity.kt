@@ -55,11 +55,12 @@ import androidx.navigation.compose.rememberNavController
 import com.example.core.KodeGitContainer
 import com.example.core.configureAppCheck
 import com.example.data.model.GitHubUserDto
+import com.example.data.repository.GitHubRepository
 import com.example.ui.screens.AiStudioTabScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.CodeEditorScreen
+import com.example.ui.screens.GitHubConnectSheet
 import com.example.ui.screens.HomeDashboardScreen
-import com.example.ui.screens.OAuthSetupGuideSheet
 import com.example.ui.screens.RepoWorkspaceScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.BorderSubtle
@@ -174,11 +175,14 @@ private fun KodeGitApp(
 ) {
     val navController = rememberNavController()
     val authState by authViewModel.uiState.collectAsStateWithLifecycle()
-    var showOAuthConfigSheet by remember { mutableStateOf(false) }
+    val isVerifyingToken by authViewModel.isVerifyingToken.collectAsStateWithLifecycle()
+    val tokenLoginError by authViewModel.tokenLoginError.collectAsStateWithLifecycle()
+    var showConnectSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(authState) {
         when (authState) {
             is AuthUiState.Authenticated -> {
+                showConnectSheet = false
                 workspaceViewModel.loadRepositories()
                 if (navController.currentDestination?.route == ROUTE_AUTH) {
                     navController.navigate(ROUTE_MAIN_SHELL) {
@@ -211,13 +215,11 @@ private fun KodeGitApp(
         composable(ROUTE_AUTH) {
             AuthScreen(
                 uiState = authState,
-                showConfigSheet = showOAuthConfigSheet,
-                onDismissConfigSheet = { showOAuthConfigSheet = false },
+                showConfigSheet = false,
+                onDismissConfigSheet = {},
                 onLoginClick = {
-                    authViewModel.startOAuthLogin(
-                        onNeedsConfig = { showOAuthConfigSheet = true },
-                        onLaunchBrowser = onLaunchOAuthBrowser
-                    )
+                    authViewModel.clearTokenLoginError()
+                    showConnectSheet = true
                 },
                 onExploreWorkspaceClick = { authViewModel.enterGuestWorkspace() },
                 onRetrySessionCheck = { authViewModel.checkExistingSession() }
@@ -231,10 +233,8 @@ private fun KodeGitApp(
                 workspaceViewModel = workspaceViewModel,
                 editorAiViewModel = editorAiViewModel,
                 onConnectGitHub = {
-                    authViewModel.startOAuthLogin(
-                        onNeedsConfig = { showOAuthConfigSheet = true },
-                        onLaunchBrowser = onLaunchOAuthBrowser
-                    )
+                    authViewModel.clearTokenLoginError()
+                    showConnectSheet = true
                 },
                 onLogout = authViewModel::logout,
                 onOpenRepoWorkspace = { repo ->
@@ -340,8 +340,30 @@ private fun KodeGitApp(
         }
     }
 
-    if (showOAuthConfigSheet && navController.currentDestination?.route != ROUTE_AUTH) {
-        OAuthSetupGuideSheet(onDismiss = { showOAuthConfigSheet = false })
+    if (showConnectSheet) {
+        GitHubConnectSheet(
+            oauthConfigured = authViewModel.isOAuthConfigured(),
+            isVerifyingToken = isVerifyingToken,
+            tokenError = tokenLoginError,
+            onDismiss = {
+                authViewModel.clearTokenLoginError()
+                showConnectSheet = false
+            },
+            onOpenTokenGenerator = {
+                onLaunchOAuthBrowser(Uri.parse(GitHubRepository.GITHUB_TOKEN_CREATE_URL))
+            },
+            onSubmitToken = { token ->
+                authViewModel.loginWithToken(token) {
+                    showConnectSheet = false
+                }
+            },
+            onStartOAuthBrowser = {
+                authViewModel.startOAuthLogin(
+                    onNeedsConfig = { showConnectSheet = true },
+                    onLaunchBrowser = onLaunchOAuthBrowser
+                )
+            }
+        )
     }
 }
 

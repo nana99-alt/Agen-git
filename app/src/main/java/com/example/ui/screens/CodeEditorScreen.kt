@@ -709,7 +709,7 @@ private fun AiAssistantPanel(
                         fontWeight = FontWeight.Bold
                     )
                     StatusPill(
-                        text = "gemini-4-carbon • Thinking HIGH",
+                        text = "gemini-3.8-flash • Thinking HIGH",
                         containerColor = LuminousVioletContainer,
                         contentColor = LuminousViolet,
                         mono = true

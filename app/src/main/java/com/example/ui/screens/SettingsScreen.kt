@@ -305,14 +305,14 @@ fun SettingsScreen(
                                 )
                             }
                             StatusPill(
-                                text = "Firebase AI Logic • gemini-4-carbon • ThinkingLevel.HIGH",
+                                text = "Firebase AI Logic • gemini-3.8-flash • Thinking HIGH",
                                 containerColor = LuminousVioletContainer,
                                 contentColor = LuminousViolet,
                                 mono = true
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                text = "Diaktifkan dengan penalaran mendalam untuk analisis kode kompleks, deteksi bug, refaktor, dan rekomendasi pesan commit.",
+                                text = "Menggunakan Gemini 3.8 Flash (Free Tier tanpa perlu billing, dengan cadangan otomatis gemini-3.5-flash-lite) untuk analisis kode, deteksi bug, refaktor, dan saran pesan commit.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondary
                             )

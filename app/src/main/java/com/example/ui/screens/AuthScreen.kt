@@ -23,22 +23,31 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.Source
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -60,6 +69,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.R
@@ -119,7 +131,7 @@ fun AuthScreen(
             ),
             OnboardingSlide(
                 badge = "HIGH THINKING AI",
-                title = "Asisten Coding Gemini 4 Carbon",
+                title = "Asisten Coding Gemini AI",
                 subtitle = "Audit bug, refaktor kode kompleks, buat pesan commit otomatis, dan terapkan kode usulan AI dalam satu ketukan.",
                 icon = Icons.Rounded.AutoAwesome,
                 accent = LuminousViolet,
@@ -334,12 +346,12 @@ fun AuthScreen(
                             Text("Menghubungkan ke GitHub...")
                         } else {
                             Icon(
-                                imageVector = Icons.Rounded.OpenInBrowser,
+                                imageVector = Icons.Rounded.Key,
                                 contentDescription = null
                             )
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                text = "Masuk dengan GitHub",
+                                text = "Masuk dengan GitHub (Token / Browser)",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
@@ -374,7 +386,7 @@ fun AuthScreen(
                     }
 
                     Text(
-                        text = "Login GitHub menggunakan OAuth 2.0 + PKCE melalui browser aman.",
+                        text = "Bisa pakai API Key / Personal Access Token GitHub langsung, atau login via Browser (Google / GitHub).",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
                         textAlign = TextAlign.Center,
@@ -392,9 +404,256 @@ fun AuthScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun GitHubConnectSheet(
+    oauthConfigured: Boolean,
+    isVerifyingToken: Boolean,
+    tokenError: String?,
+    onDismiss: () -> Unit,
+    onOpenTokenGenerator: () -> Unit,
+    onSubmitToken: (String) -> Unit,
+    onStartOAuthBrowser: () -> Unit
+) {
+    val clipboard = LocalClipboardManager.current
+    var tokenInput by remember { mutableStateOf("") }
+    var showToken by remember { mutableStateOf(false) }
+    var showOAuthGuide by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(
+        onDismissRequest = { if (!isVerifyingToken) onDismiss() },
+        containerColor = GraphiteSurface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            StatusPill(
+                text = "HUBUNGKAN GITHUB",
+                containerColor = ElectricCyanContainer,
+                contentColor = ElectricCyan,
+                mono = true
+            )
+            Text(
+                text = "Masuk dengan Token / Browser",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Cara tercepat: buat Token (API Key) di GitHub — di halaman login browser GitHub Anda bisa klik \"Continue with Google\", lalu tempel tokennya di sini.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+
+            FilledTonalButton(
+                onClick = onOpenTokenGenerator,
+                enabled = !isVerifyingToken,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = GraphiteElevated,
+                    contentColor = ElectricCyan
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("open_github_token_generator_button")
+            ) {
+                Icon(Icons.Rounded.OpenInBrowser, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "1. Buat Token di GitHub (Bisa Login Google)",
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            OutlinedTextField(
+                value = tokenInput,
+                onValueChange = { tokenInput = it },
+                label = { Text("2. Tempel GitHub Token / API Key") },
+                placeholder = { Text("ghp_... atau github_pat_...") },
+                singleLine = true,
+                enabled = !isVerifyingToken,
+                visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (tokenInput.isNotBlank() && !isVerifyingToken) {
+                            onSubmitToken(tokenInput)
+                        }
+                    }
+                ),
+                trailingIcon = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = {
+                                val clipText = clipboard.getText()?.text
+                                if (!clipText.isNullOrBlank()) {
+                                    tokenInput = clipText.trim()
+                                }
+                            },
+                            enabled = !isVerifyingToken
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.ContentPaste,
+                                contentDescription = "Tempel token dari papan klip",
+                                tint = ElectricCyan
+                            )
+                        }
+                        IconButton(onClick = { showToken = !showToken }) {
+                            Icon(
+                                imageVector = if (showToken) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                                contentDescription = if (showToken) "Sembunyikan token" else "Tampilkan token"
+                            )
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("github_token_input")
+            )
+
+            if (!tokenError.isNullOrBlank()) {
+                ErrorBanner(message = tokenError)
+            }
+
+            Button(
+                onClick = { onSubmitToken(tokenInput) },
+                enabled = !isVerifyingToken && tokenInput.isNotBlank(),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ElectricCyan,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .testTag("submit_github_token_button")
+            ) {
+                if (isVerifyingToken) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Memverifikasi Token...", fontWeight = FontWeight.Bold)
+                } else {
+                    Icon(Icons.Rounded.Key, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Hubungkan & Masuk", fontWeight = FontWeight.Bold)
+                }
+            }
+
+            HorizontalDivider(color = BorderSubtle)
+
+            if (oauthConfigured) {
+                OutlinedButton(
+                    onClick = {
+                        onDismiss()
+                        onStartOAuthBrowser()
+                    },
+                    enabled = !isVerifyingToken,
+                    border = BorderStroke(1.dp, BorderSubtle),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("oauth_browser_login_button")
+                ) {
+                    Icon(Icons.Rounded.OpenInBrowser, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Atau Masuk via Browser OAuth (Google / GitHub)")
+                }
+            } else {
+                TextButton(
+                    onClick = { showOAuthGuide = !showOAuthGuide },
+                    modifier = Modifier.align(Alignment.Start)
+                ) {
+                    Text(
+                        text = if (showOAuthGuide) "Sembunyikan info OAuth App" else "Ingin pakai login OAuth 1-klik? Lihat panduan",
+                        color = TextSecondary
+                    )
+                }
+                if (showOAuthGuide) {
+                    OAuthGuideCard(clipboard = clipboard)
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss, enabled = !isVerifyingToken) {
+                    Text("Tutup")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OAuthGuideCard(clipboard: androidx.compose.ui.platform.ClipboardManager) {
+    var copied by remember { mutableStateOf(false) }
+    Surface(
+        color = ObsidianBg,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "1. Authorization callback URL:",
+                style = MaterialTheme.typography.labelMedium,
+                color = TextSecondary
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "kodegit://oauth/callback",
+                    fontFamily = JetBrainsMonoFamily,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ElectricCyan
+                )
+                IconButton(
+                    onClick = {
+                        clipboard.setText(AnnotatedString("kodegit://oauth/callback"))
+                        copied = true
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ContentCopy,
+                        contentDescription = "Salin Callback URL",
+                        tint = ElectricCyan
+                    )
+                }
+            }
+            if (copied) {
+                Text(
+                    text = "Callback URL disalin ke papan klip.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = EmeraldSuccess
+                )
+            }
+            Text(
+                text = "2. Tambahkan GITHUB_CLIENT_ID dan GITHUB_CLIENT_SECRET di GitHub Secrets / panel Secrets.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun OAuthSetupGuideSheet(onDismiss: () -> Unit) {
     val clipboard = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -419,63 +678,11 @@ fun OAuthSetupGuideSheet(onDismiss: () -> Unit) {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Agar login browser GitHub berfungsi dengan akun Anda, buat GitHub OAuth App dan isi kredensial pada panel Secrets di AI Studio:",
+                text = "Agar login browser OAuth 1-klik berfungsi, buat GitHub OAuth App dan isi GITHUB_CLIENT_ID serta GITHUB_CLIENT_SECRET. Atau gunakan Token GitHub langsung tanpa setup OAuth!",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary
             )
-            Surface(
-                color = ObsidianBg,
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "1. Authorization callback URL:",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TextSecondary
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "kodegit://oauth/callback",
-                            fontFamily = JetBrainsMonoFamily,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = ElectricCyan
-                        )
-                        IconButton(
-                            onClick = {
-                                clipboard.setText(AnnotatedString("kodegit://oauth/callback"))
-                                copied = true
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.ContentCopy,
-                                contentDescription = "Salin Callback URL",
-                                tint = ElectricCyan
-                            )
-                        }
-                    }
-                    if (copied) {
-                        Text(
-                            text = "Callback URL disalin ke papan klip.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = EmeraldSuccess
-                        )
-                    }
-                    Text(
-                        text = "2. Tambahkan GITHUB_CLIENT_ID dan GITHUB_CLIENT_SECRET di panel Secrets.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
-                    )
-                }
-            }
+            OAuthGuideCard(clipboard = clipboard)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
