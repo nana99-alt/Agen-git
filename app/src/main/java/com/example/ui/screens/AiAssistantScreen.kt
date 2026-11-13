@@ -102,9 +102,9 @@ fun AiStudioTabScreen(
         "Jelaskan Logika" to "Jelaskan cara kerja kode ini langkah demi langkah dengan ringkas dalam Bahasa Indonesia."
     )
 
-    LaunchedEffect(messages.size, aiState) {
-        if (messages.isNotEmpty() || aiState is AiAssistantUiState.Streaming) {
-            listState.animateScrollToItem(messages.size.coerceAtLeast(0))
+    LaunchedEffect(messages.size, aiState is AiAssistantUiState.Thinking) {
+        if (messages.isNotEmpty() || aiState is AiAssistantUiState.Thinking) {
+            listState.scrollToItem(messages.size.coerceAtLeast(0))
         }
     }
 

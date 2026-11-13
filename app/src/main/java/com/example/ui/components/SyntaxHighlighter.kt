@@ -18,11 +18,37 @@ import com.example.ui.theme.SyntaxType
 class CodeSyntaxVisualTransformation(
     private val fileExtension: String
 ) : VisualTransformation {
+    private var cachedSource: String? = null
+    private var cachedResult: AnnotatedString? = null
+
     override fun filter(text: AnnotatedString): TransformedText {
-        val highlighted = highlightCodeSyntax(text.text, fileExtension)
+        val raw = text.text
+        val highlighted = if (raw == cachedSource && cachedResult != null) {
+            cachedResult!!
+        } else {
+            highlightCodeSyntax(raw, fileExtension).also {
+                cachedSource = raw
+                cachedResult = it
+            }
+        }
         return TransformedText(highlighted, OffsetMapping.Identity)
     }
 }
+
+private val HASH_COMMENT_REGEX = Regex("#[^\\n]*")
+private val SQL_COMMENT_REGEX = Regex("--[^\\n]*")
+private val C_COMMENT_REGEX = Regex("//[^\\n]*|/\\*[\\s\\S]*?\\*/")
+private val STRING_REGEX = Regex("\"([^\"\\\\]|\\\\.)*\"|'([^'\\\\]|\\\\.)*'")
+private val ANNOTATION_REGEX = Regex("@[A-Za-z_][A-Za-z0-9_]*")
+private val NUMBER_REGEX = Regex("\\b\\d+(\\.\\d+)?[fFlLuU]?\\b")
+private val WORD_REGEX = Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\b")
+
+private val KEYWORD_SPAN = SpanStyle(color = SyntaxKeyword)
+private val TYPE_SPAN = SpanStyle(color = SyntaxType)
+private val NUMBER_SPAN = SpanStyle(color = SyntaxNumber)
+private val ANNOTATION_SPAN = SpanStyle(color = SyntaxAnnotation)
+private val STRING_SPAN = SpanStyle(color = SyntaxString)
+private val COMMENT_SPAN = SpanStyle(color = SyntaxComment, fontStyle = FontStyle.Italic)
 
 private val COMMON_KEYWORDS = setOf(
     "package", "import", "class", "interface", "object", "fun", "val", "var",
@@ -38,66 +64,41 @@ private val COMMON_KEYWORDS = setOf(
 
 fun highlightCodeSyntax(source: String, extension: String): AnnotatedString {
     if (source.isEmpty()) return AnnotatedString("")
-    // Batasi pewarnaan regex kompleks pada berkas sangat besar demi kelancaran 60fps
-    if (source.length > 40_000) return AnnotatedString(source)
+    if (source.length > 30_000) return AnnotatedString(source)
 
     val ext = extension.lowercase()
     return buildAnnotatedString {
         append(source)
 
-        // 1. Komentar baris // atau # atau --
         val commentPattern = when (ext) {
-            "py", "sh", "yaml", "yml", "toml", "rb" -> Regex("#[^\\n]*")
-            "sql" -> Regex("--[^\\n]*")
-            else -> Regex("//[^\\n]*|/\\*[\\s\\S]*?\\*/")
+            "py", "sh", "yaml", "yml", "toml", "rb" -> HASH_COMMENT_REGEX
+            "sql" -> SQL_COMMENT_REGEX
+            else -> C_COMMENT_REGEX
         }
 
-        // 2. String literal "..." dan '...'
-        val stringPattern = Regex("\"([^\"\\\\]|\\\\.)*\"|'([^'\\\\]|\\\\.)*'")
-
-        // 3. Anotasi @Something
-        val annotationPattern = Regex("@[A-Za-z_][A-Za-z0-9_]*")
-
-        // 4. Angka
-        val numberPattern = Regex("\\b\\d+(\\.\\d+)?[fFlLuU]?\\b")
-
-        // 5. Kata kunci & Tipe PascalCase
-        val wordPattern = Regex("\\b[A-Za-z_][A-Za-z0-9_]*\\b")
-
-        wordPattern.findAll(source).forEach { match ->
+        WORD_REGEX.findAll(source).forEach { match ->
             val token = match.value
-            when {
-                token in COMMON_KEYWORDS -> addStyle(
-                    SpanStyle(color = SyntaxKeyword),
-                    match.range.first,
-                    match.range.last + 1
-                )
-                token.first().isUpperCase() && token.any { it.isLowerCase() } -> addStyle(
-                    SpanStyle(color = SyntaxType),
-                    match.range.first,
-                    match.range.last + 1
-                )
+            if (token in COMMON_KEYWORDS) {
+                addStyle(KEYWORD_SPAN, match.range.first, match.range.last + 1)
+            } else if (token.first().isUpperCase() && token.any { it.isLowerCase() }) {
+                addStyle(TYPE_SPAN, match.range.first, match.range.last + 1)
             }
         }
 
-        numberPattern.findAll(source).forEach { match ->
-            addStyle(SpanStyle(color = SyntaxNumber), match.range.first, match.range.last + 1)
+        NUMBER_REGEX.findAll(source).forEach { match ->
+            addStyle(NUMBER_SPAN, match.range.first, match.range.last + 1)
         }
 
-        annotationPattern.findAll(source).forEach { match ->
-            addStyle(SpanStyle(color = SyntaxAnnotation), match.range.first, match.range.last + 1)
+        ANNOTATION_REGEX.findAll(source).forEach { match ->
+            addStyle(ANNOTATION_SPAN, match.range.first, match.range.last + 1)
         }
 
-        stringPattern.findAll(source).forEach { match ->
-            addStyle(SpanStyle(color = SyntaxString), match.range.first, match.range.last + 1)
+        STRING_REGEX.findAll(source).forEach { match ->
+            addStyle(STRING_SPAN, match.range.first, match.range.last + 1)
         }
 
         commentPattern.findAll(source).forEach { match ->
-            addStyle(
-                SpanStyle(color = SyntaxComment, fontStyle = FontStyle.Italic),
-                match.range.first,
-                match.range.last + 1
-            )
+            addStyle(COMMENT_SPAN, match.range.first, match.range.last + 1)
         }
     }
 }

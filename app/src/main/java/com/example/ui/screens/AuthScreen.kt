@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -192,8 +191,7 @@ fun AuthScreen(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(18.dp),
-                            border = BorderStroke(1.5.dp, ElectricCyan.copy(alpha = 0.45f)),
-                            shadowElevation = 8.dp
+                            border = BorderStroke(1.5.dp, ElectricCyan.copy(alpha = 0.45f))
                         ) {
                             Image(
                                 painter = painterResource(id = R.drawable.ic_kodegit_logo),
@@ -288,16 +286,12 @@ fun AuthScreen(
                     ) {
                         repeat(slides.size) { index ->
                             val selected = pagerState.currentPage == index
-                            val dotColor by animateColorAsState(
-                                targetValue = if (selected) ElectricCyan else BorderSubtle,
-                                label = "pagerDot"
-                            )
                             Box(
                                 modifier = Modifier
                                     .height(7.dp)
                                     .width(if (selected) 24.dp else 7.dp)
                                     .clip(CircleShape)
-                                    .background(dotColor)
+                                    .background(if (selected) ElectricCyan else BorderSubtle)
                             )
                         }
                     }

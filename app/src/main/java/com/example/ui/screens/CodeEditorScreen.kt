@@ -676,10 +676,9 @@ private fun AiAssistantPanel(
         "Tambah komentar & doc" to "Tambahkan komentar dokumentasi yang jelas dan ringkas pada fungsi/kelas utama di kode ini."
     )
 
-    LaunchedEffect(messages.size, aiState) {
-        if (messages.isNotEmpty() || aiState is AiAssistantUiState.Streaming) {
-            val target = messages.size.coerceAtLeast(0)
-            listState.animateScrollToItem(target)
+    LaunchedEffect(messages.size, aiState is AiAssistantUiState.Thinking) {
+        if (messages.isNotEmpty() || aiState is AiAssistantUiState.Thinking) {
+            listState.scrollToItem(messages.size.coerceAtLeast(0))
         }
     }
 
